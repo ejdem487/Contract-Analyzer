@@ -7,8 +7,13 @@ import org.springframework.web.client.RestTemplate;
 @Service
 public class LawSourceService {
 
-    private final RestTemplate restTemplate = new RestTemplate();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper;
+
+    public LawSourceService(RestTemplate restTemplate, ObjectMapper objectMapper) {
+        this.restTemplate = restTemplate;
+        this.objectMapper = objectMapper;
+    }
 
     public String getLawTitle(String number, String year) {
         String url = "https://www.zakonyprolidi.cz/api/v1/data.json/DocData"
