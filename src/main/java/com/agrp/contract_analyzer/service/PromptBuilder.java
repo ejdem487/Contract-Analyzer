@@ -16,7 +16,8 @@ public class PromptBuilder {
                 {
                   "contractType": "typ smlouvy",
                   "relevantLaws": [{"number": "89", "year": "2012", "title": "Občanský zákoník"}],
-                  "keyTopics": ["téma1", "téma2"]
+                  "keyTopics": ["téma1", "téma2"],
+                  "relevantParagraphs": ["§ 2248", "§ 2249"]
                 }
                 
                 Původní smlouva:
