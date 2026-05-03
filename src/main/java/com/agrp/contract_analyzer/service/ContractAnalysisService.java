@@ -68,18 +68,29 @@ public class ContractAnalysisService {
             String clean = response.replaceAll("```json", "").replaceAll("```", "").trim();
             return objectMapper.readValue(clean, LawIdentificationResult.class);
         } catch (Exception e) {
-            return new LawIdentificationResult("neznámá", List.of(), List.of());
+            return new LawIdentificationResult("neznámá", List.of(), List.of(), List.of());
         }
     }
 
     private String buildLawContext(LawIdentificationResult identification) {
         StringBuilder context = new StringBuilder();
+
         for (LawDto law : identification.relevantLaws()) {
             String title = lawSourceService.getLawTitle(law.number(), law.year());
             if (!title.isBlank()) {
                 context.append(title).append("\n");
             }
+
+            if (identification.relevantParagraphs() != null && !identification.relevantParagraphs().isEmpty()) {
+                String paragraphTexts = lawSourceService.fetchParagraphTexts(
+                        law.number(), law.year(), identification.relevantParagraphs()
+                );
+                if (!paragraphTexts.isBlank()) {
+                    context.append("Relevantní ustanovení:\n").append(paragraphTexts).append("\n");
+                }
+            }
         }
+
         return context.toString();
     }
 
