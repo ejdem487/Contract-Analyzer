@@ -9,8 +9,9 @@ public class PromptBuilder {
 
     public String buildIdentificationPrompt(String original, String revised) {
         return """
-                Jsi právní analytik systému CODEXIS.
+                Jsi zkušený právník specializovaný na české právo.
                 Porovnej dvě verze smlouvy a vrať POUZE validní JSON bez markdownu.
+           
                 
                 Formát:
                 {
@@ -19,6 +20,8 @@ public class PromptBuilder {
                   "keyTopics": ["téma1", "téma2"],
                   "relevantParagraphs": ["§ 2248", "§ 2249"]
                 }
+                
+                Uveď pouze zákony a paragrafy které skutečně existují v českém právním řádu.
                 
                 Původní smlouva:
                 %s
@@ -32,12 +35,22 @@ public class PromptBuilder {
                                       String contractType, List<String> keyTopics,
                                       String lawContext) {
         return """
-                Jsi právní analytik systému CODEXIS.
-                Porovnej dvě verze smlouvy, najdi co přibylo a analyzuj právní rizika.
+                Jsi zkušený právník specializovaný na české právo.
                 
                 Typ smlouvy: %s
                 Klíčová témata: %s
                 Právní kontext (ověřeno ze Zákony pro lidi): %s
+                
+                Analyzuj přidané klauzule krok za krokem:
+                            Krok 1: Identifikuj co přibylo ve druhé verzi smlouvy.
+                            Krok 2: Pro každou přidanou část urči relevantní právní oblast.
+                            Krok 3: Zhodnoť jestli je klauzule v souladu se zákonem.
+                            Krok 4: Urči závažnost rizika (HIGH/MEDIUM/LOW).
+                            Krok 5: Navrhni konkrétní doporučení.
+                
+                DŮLEŽITÉ: V právním kontextu výše máš skutečné znění paragrafů ze Zákony pro lidi.
+                            Cituj pouze paragrafy které jsou uvedeny v tomto kontextu.
+                            Pokud paragraf v kontextu není, popiš problém obecně bez citace paragrafu.
                 
                 Původní smlouva:
                 %s
