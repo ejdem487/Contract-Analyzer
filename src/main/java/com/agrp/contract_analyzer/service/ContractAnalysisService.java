@@ -33,19 +33,18 @@ public class ContractAnalysisService {
         this.objectMapper = objectMapper;
     }
 
-    @Transactional
     public ContractAnalysisResponse analyze(ContractAnalysisRequest request) {
 
-        // 1. První Gemini volání — identifikace zákonů
+
         LawIdentificationResult identification = identifyLaws(
                 request.originalContractText(),
                 request.revisedContractText()
         );
 
-        // 2. Ověření zákonů přes zakonyprolidi.cz
+
         String lawContext = buildLawContext(identification);
 
-        // 3. Druhé Gemini volání — analýza rizik
+
         String analysisJson = geminiService.generate(
                 promptBuilder.buildAnalysisPrompt(
                         request.originalContractText(),
@@ -56,7 +55,7 @@ public class ContractAnalysisService {
                 )
         );
 
-        // 4. Uložení a vrácení výsledku
+
         return saveAndReturn(request, identification, analysisJson);
     }
 
