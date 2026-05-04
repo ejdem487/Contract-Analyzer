@@ -67,9 +67,6 @@ public class LawSourceService {
                     }
                 }
             }
-            // jen test pro kontrolu zda fetchParagraphTexts opravdu hleda v zakonyprolidi.cz api
-            System.out.println("Fetching paragraphs: " + paragraphs + " for law: " + year + "-" + number);
-            System.out.println("Found paragraph text: " + result);
             return result;
 
         } catch (Exception e) {
