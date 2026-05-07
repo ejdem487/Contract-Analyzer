@@ -4,16 +4,14 @@ import com.agrp.contract_analyzer.dto.*;
 import com.agrp.contract_analyzer.model.ContractAnalysis;
 import com.agrp.contract_analyzer.model.LegalIssue;
 import com.agrp.contract_analyzer.repository.ContractAnalysisRepository;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class ContractAnalysisService {
+
 
     private final GeminiService geminiService;
     private final LawSourceService lawSourceService;
@@ -45,44 +43,56 @@ public class ContractAnalysisService {
         String lawContext = buildLawContext(identification);
 
 
-        String analysisJson = geminiService.generate(
+        String response = geminiService.generateStructured(
                 promptBuilder.buildAnalysisPrompt(
                         request.originalContractText(),
                         request.revisedContractText(),
                         identification.contractType(),
                         identification.keyTopics(),
                         lawContext
-                )
+                ),
+                ANALYSIS_SCHEMA
         );
 
-
-        return saveAndReturn(request, identification, analysisJson);
+        try {
+            AnalysisResult result = objectMapper.readValue(response, AnalysisResult.class);
+            return saveAndReturn(request, identification, result);
+        } catch (Exception e) {
+            throw new RuntimeException("Chyba při parsování AI analýzy: " + e.getMessage(), e);
+        }
     }
 
     private LawIdentificationResult identifyLaws(String original, String revised) {
         String prompt = promptBuilder.buildIdentificationPrompt(original, revised);
-        String response = geminiService.generate(prompt);
+        String response = geminiService.generateStructured(prompt, LAW_IDENTIFICATION_SCHEMA);
 
         try {
-            String clean = response.replaceAll("```json", "").replaceAll("```", "").trim();
-            return objectMapper.readValue(clean, LawIdentificationResult.class);
+            return objectMapper.readValue(response, LawIdentificationResult.class);
         } catch (Exception e) {
-            return new LawIdentificationResult("neznámá", List.of(), List.of(), List.of());
+            return new LawIdentificationResult("neznámá", List.of(), List.of());
         }
     }
 
     private String buildLawContext(LawIdentificationResult identification) {
         StringBuilder context = new StringBuilder();
 
-        for (LawDto law : identification.relevantLaws()) {
+        List<LawDto> laws = identification.relevantLaws() != null
+                ? identification.relevantLaws()
+                : List.of();
+
+        for (LawDto law : laws) {
             String title = lawSourceService.getLawTitle(law.number(), law.year());
             if (!title.isBlank()) {
                 context.append(title).append("\n");
             }
 
-            if (identification.relevantParagraphs() != null && !identification.relevantParagraphs().isEmpty()) {
+            List<String> paragraphs = law.relevantParagraphs() != null
+                    ? law.relevantParagraphs()
+                    : List.of();
+
+            if (!paragraphs.isEmpty()) {
                 String paragraphTexts = lawSourceService.fetchParagraphTexts(
-                        law.number(), law.year(), identification.relevantParagraphs()
+                        law.number(), law.year(), paragraphs
                 );
                 if (!paragraphTexts.isBlank()) {
                     context.append("Relevantní ustanovení:\n").append(paragraphTexts).append("\n");
@@ -95,38 +105,35 @@ public class ContractAnalysisService {
 
     private ContractAnalysisResponse saveAndReturn(ContractAnalysisRequest request,
                                                    LawIdentificationResult identification,
-                                                   String analysisJson) {
-        try {
-            String clean = analysisJson.replaceAll("```json", "").replaceAll("```", "").trim();
-            JsonNode root = objectMapper.readTree(clean);
+                                                   AnalysisResult result) {
+        ContractAnalysis analysis = new ContractAnalysis();
+        analysis.setContractName(request.contractName());
+        analysis.setContractType(identification.contractType());
+        analysis.setOriginalContractText(request.originalContractText());
+        analysis.setRevisedContractText(request.revisedContractText());
+        analysis.setAddedClauses(result.addedClauses());
+        analysis.setOverallRisk(result.overallRisk());
+        analysis.setSummary(result.summary());
 
-            ContractAnalysis analysis = new ContractAnalysis();
-            analysis.setContractName(request.contractName());
-            analysis.setContractType(identification.contractType());
-            analysis.setOriginalContractText(request.originalContractText());
-            analysis.setRevisedContractText(request.revisedContractText());
-            analysis.setAddedClauses(root.path("addedClauses").asText(""));
-            analysis.setOverallRisk(root.path("overallRisk").asText("UNKNOWN"));
-            analysis.setSummary(root.path("summary").asText(""));
+        List<AnalysisIssueResult> issueResults =
+                result.issues() != null ? result.issues() : List.of();
 
-            List<LegalIssue> issues = new ArrayList<>();
-            for (JsonNode issueNode : root.path("issues")) {
-                LegalIssue issue = new LegalIssue();
-                issue.setSeverity(issueNode.path("severity").asText(""));
-                issue.setClause(issueNode.path("clause").asText(""));
-                issue.setProblem(issueNode.path("problem").asText(""));
-                issue.setRecommendation(issueNode.path("recommendation").asText(""));
-                issue.setLegalReference(issueNode.path("legalReference").asText(""));
-                issue.setContractAnalysis(analysis);
-                issues.add(issue);
-            }
-            analysis.setIssues(issues);
+        List<LegalIssue> issues = issueResults.stream()
+                .map(issueResult -> {
+                    LegalIssue issue = new LegalIssue();
+                    issue.setSeverity(issueResult.severity());
+                    issue.setClause(issueResult.clause());
+                    issue.setProblem(issueResult.problem());
+                    issue.setRecommendation(issueResult.recommendation());
+                    issue.setLegalReference(issueResult.legalReference());
+                    issue.setContractAnalysis(analysis);
+                    return issue;
+                })
+                .toList();
 
-            return toResponse(repository.save(analysis));
+        analysis.setIssues(issues);
 
-        } catch (Exception e) {
-            throw new RuntimeException("Chyba při parsování AI odpovědi: " + e.getMessage());
-        }
+        return toResponse(repository.save(analysis));
     }
 
     public List<ContractAnalysisResponse> findAll() {
@@ -166,4 +173,68 @@ public class ContractAnalysisService {
                 a.getCreatedAt()
         );
     }
+
+    private static final Map<String, Object> LAW_IDENTIFICATION_SCHEMA = Map.of(
+            "type", "object",
+            "required", List.of("contractType", "relevantLaws", "keyTopics"),
+            "properties", Map.of(
+                    "contractType", Map.of("type", "string"),
+                    "relevantLaws", Map.of(
+                            "type", "array",
+                            "items", Map.of(
+                                    "type", "object",
+                                    "required", List.of("number", "year", "title", "relevantParagraphs"),
+                                    "properties", Map.of(
+                                            "number", Map.of("type", "string"),
+                                            "year", Map.of("type", "string"),
+                                            "title", Map.of("type", "string"),
+                                            "relevantParagraphs", Map.of(
+                                                    "type","array",
+                                                    "items", Map.of("type", "string")
+                                            )
+
+                                    )
+                            )
+                    ),
+                    "keyTopics", Map.of(
+                            "type", "array",
+                            "items", Map.of("type", "string")
+                    )
+
+            )
+    );
+
+
+
+    private static final Map<String, Object> ANALYSIS_SCHEMA = Map.of(
+            "type", "object",
+            "required", List.of("addedClauses", "overallRisk", "summary", "issues"),
+            "properties", Map.of(
+                    "addedClauses", Map.of("type", "string"),
+                    "overallRisk", Map.of(
+                            "type", "string",
+                            "enum", List.of("HIGH", "MEDIUM", "LOW")
+                    ),
+                    "summary", Map.of("type", "string"),
+                    "issues", Map.of(
+                            "type", "array",
+                            "items", Map.of(
+                                    "type", "object",
+                                    "required", List.of("severity", "clause", "problem", "recommendation", "legalReference"),
+                                    "properties", Map.of(
+                                            "severity", Map.of(
+                                                    "type", "string",
+                                                    "enum", List.of("HIGH", "MEDIUM", "LOW")
+                                            ),
+                                            "clause", Map.of("type", "string"),
+                                            "problem", Map.of("type", "string"),
+                                            "recommendation", Map.of("type", "string"),
+                                            "legalReference", Map.of("type", "string")
+                                    )
+                            )
+                    )
+            )
+    );
 }
+
+

@@ -18,7 +18,7 @@ public class LegalIssue {
     @Column(nullable = false, length = 10)
     private String severity;
 
-    @Column(length = 100)
+    @Column(columnDefinition = "TEXT")
     private String clause;
 
     @Column(columnDefinition = "TEXT", nullable = false)
