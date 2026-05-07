@@ -5,6 +5,5 @@ import java.util.List;
 public record LawIdentificationResult(
         String contractType,
         List<LawDto> relevantLaws,
-        List<String> keyTopics,
-        List<String> relevantParagraphs
+        List<String> keyTopics
 ) {}
