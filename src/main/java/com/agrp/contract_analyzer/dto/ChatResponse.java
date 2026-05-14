@@ -1,4 +1,5 @@
 package com.agrp.contract_analyzer.dto;
 
-public record ChatResponse() {
-}
+public record ChatResponse(
+        String response
+) { }

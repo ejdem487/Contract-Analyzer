@@ -62,4 +62,20 @@ public class PromptBuilder {
                 %s
                 """.formatted(contractType, String.join(", ", keyTopics), lawContext, original, revised);
     }
+
+    public String buildAskPrompt(String contract, String ask){
+        return """
+                
+                Jsi zkušený právník specializovaný na české právo.
+                Odpovídej pouze podle kontextu níže.
+                Pokud odpověď z kontextu nevyplývá, řekni, že to z uložené analýzy nelze určit.
+                Informace o smlouvě:
+                %s
+                
+                Dotaz uzivatele:
+                %s
+                
+                
+                """.formatted(contract,ask);
+    }
 }

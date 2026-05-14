@@ -1,7 +1,10 @@
 package com.agrp.contract_analyzer.controller;
 
+import com.agrp.contract_analyzer.dto.ChatRequest;
+import com.agrp.contract_analyzer.dto.ChatResponse;
 import com.agrp.contract_analyzer.dto.ContractAnalysisRequest;
 import com.agrp.contract_analyzer.dto.ContractAnalysisResponse;
+import com.agrp.contract_analyzer.service.ChatAskService;
 import com.agrp.contract_analyzer.service.ContractAnalysisService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -14,9 +17,11 @@ import java.util.List;
 public class ContractAnalysisController {
 
     private final ContractAnalysisService contractAnalysisService;
+    private final ChatAskService chatAskService;
 
-    public ContractAnalysisController(ContractAnalysisService contractAnalysisService) {
+    public ContractAnalysisController(ContractAnalysisService contractAnalysisService,  ChatAskService chatAskService) {
         this.contractAnalysisService = contractAnalysisService;
+        this.chatAskService = chatAskService;
     }
 
     @PostMapping("/analyze")
@@ -39,5 +44,13 @@ public class ContractAnalysisController {
     public ResponseEntity<Void> deleteById(@PathVariable Long id) {
         contractAnalysisService.deleteById(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/chat")
+    public ResponseEntity<ChatResponse> askChat(
+            @PathVariable Long id,
+            @Valid @RequestBody ChatRequest request
+    ){
+        return ResponseEntity.ok(chatAskService.ask(id, request));
     }
 }
