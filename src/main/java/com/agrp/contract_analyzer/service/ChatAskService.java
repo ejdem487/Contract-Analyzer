@@ -14,13 +14,11 @@ public class ChatAskService {
     private final ContractAnalysisRepository contractAnalysisRepository;
     private final GeminiService geminiService;
     private final PromptBuilder promptBuilder;
-    private final ObjectMapper objectMapper;
 
     public ChatAskService(ContractAnalysisRepository contractAnalysisRepository,  GeminiService geminiService, PromptBuilder promptBuilder) {
         this.contractAnalysisRepository = contractAnalysisRepository;
         this.geminiService = geminiService;
         this.promptBuilder = promptBuilder;
-        this.objectMapper = new ObjectMapper();
     }
 
         // metoda ktera bude volana v controlleru
@@ -28,7 +26,7 @@ public class ChatAskService {
 
         String content = promptBuilder.buildAskPrompt(buildContractContext(id),chatRequest.ask()); // creating prompt based on contract content
 
-        String answer = geminiService.generate(content); // passing created prompt and calling ai
+        String answer = normalizeAnswer(geminiService.generate(content)); // passing created prompt and calling ai
 
         return new ChatResponse(answer);
     }
@@ -84,6 +82,10 @@ public class ChatAskService {
 
     private String safe(String value){
         return value == null || value.isBlank() ?  "Neuvedeno" : value;
+    }
+
+    private String normalizeAnswer(String value) {
+        return value == null ? "" : value.replaceAll("\\s+", " ").trim();
     }
 
 }
